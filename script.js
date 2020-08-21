@@ -1,66 +1,101 @@
 const graphicsСanvas = document.getElementById("graphicsСanvas");
 const ctx = graphicsСanvas.getContext("2d");
 
-// if (graphicsСanvas.getContext) {
-//   const ctx = graphicsСanvas.getContext("2d");
-//   // drawing code here
-// } else {
-//   // canvas-unsupported code here
-// }
-
 const canW =
-    document.documentElement.clientWidth > 800
-      ? 800
-      : document.documentElement.clientWidth - 16,
-  canH = canW * 0.6;
+  document.documentElement.clientWidth > 800
+    ? 800
+    : document.documentElement.clientWidth - 16;
+const canH = canW * 0.6;
 
 graphicsСanvas.width = canW;
 graphicsСanvas.height = canH;
+const canvasPadding = canH * 0.07;
 
 ctx.translate(0, graphicsСanvas.height);
 ctx.scale(1, -1);
-ctx.fillStyle = "rgba(158,167,184,0.3)";
-ctx.fillRect(0, 0, canW, canH);
-
-const canvasPadding = canH * 0.07;
-
 ctx.translate(canvasPadding, canvasPadding);
-ctx.moveTo(0, 0);
-ctx.lineTo(canW - 2 * canvasPadding, 0);
-ctx.moveTo(0, 0);
-ctx.lineTo(0, canH - 2 * canvasPadding);
-ctx.stroke();
 
-let pointsAmount = Math.floor(Math.random() * 8) + 2;
+drawPlane();
+
+let pointsAmount = getPointsAmount();
 let pointsCoords = getChartData(pointsAmount);
 drawintGraph(pointsCoords);
+
+let timerId;
+let isDrawing = false;
+
 graphicsСanvas.onclick = redrawintGraph;
 
 function redrawintGraph() {
-  console.log(pointsCoords);
-  let newPointsAmount = Math.floor(Math.random() * 8) + 2;
-  let newPointsCoords = getChartData(newPointsAmount);
-  const intermediatePointsCoords = newPointsCoords.map((_, index) => {
-    return {
-      ...pointsCoords[
-        Math.ceil((pointsCoords.length / newPointsCoords.length) * index) - 1
-      ],
-    };
-  });
-  console.log("intermediatePointsCoords", intermediatePointsCoords);
-  console.log("newPointsCoords", newPointsCoords);
-}
+  if (isDrawing) {
+    clearTimeout(timerId);
+  }
+  isDrawing = true;
+  const oldPointsAmount = pointsCoords.length;
 
-function drawintGraph(pointsCoords) {
-  ctx.fillStyle = "#FFFFFF";
-  pointsCoords.forEach(({ x, y }, index) => {
-    if (index) {
-      lineDrawing(pointsCoords[index - 1].x, pointsCoords[index - 1].y, x, y);
+  const newPointsAmount = getPointsAmount();
+  const newPointsCoords = getChartData(newPointsAmount);
+
+  let startPointsCoords = [];
+  let endPointsCoords = [];
+
+  if (oldPointsAmount === newPointsAmount) {
+    startPointsCoords = copyCoords(pointsCoords);
+    endPointsCoords = copyCoords(newPointsCoords);
+  } else if (oldPointsAmount < newPointsAmount) {
+    endPointsCoords = copyCoords(newPointsCoords);
+    const lengthRation = oldPointsAmount / newPointsAmount;
+    for (let i = 1; i <= newPointsAmount; i++) {
+      let index =
+        (lengthRation * i) % 1 <= lengthRation / 2
+          ? Math.floor(lengthRation * i) - 1
+          : Math.ceil(lengthRation * i) - 1;
+      startPointsCoords.push({ ...pointsCoords[index] });
     }
-  });
-  pointsCoords.forEach(({ x, y }) => {
-    pointDrawing(x, y);
-  });
+  } else {
+    startPointsCoords = copyCoords(pointsCoords);
+    const lengthRation = newPointsAmount / oldPointsAmount;
+    for (let i = 1; i <= oldPointsAmount; i++) {
+      let index =
+        (lengthRation * i) % 1 <= lengthRation / 2
+          ? Math.floor(lengthRation * i) - 1
+          : Math.ceil(lengthRation * i) - 1;
+      endPointsCoords.push({ ...newPointsCoords[index] });
+    }
+  }
+
+  const iterateNumber = 60;
+  const iterateTime = 700;
+
+  const deltaPoints = endPointsCoords.map(({ x, y }, index) => ({
+    x: (x - startPointsCoords[index].x) / iterateNumber,
+    y: (y - startPointsCoords[index].y) / iterateNumber,
+  }));
+
+  let time = 0;
+  timerId = setInterval(() => {
+    time++;
+    for (let i = 0; i < startPointsCoords.length; i++) {
+      startPointsCoords[i].x += deltaPoints[i].x;
+      startPointsCoords[i].y += deltaPoints[i].y;
+    }
+    drawPlane();
+    drawintGraph(startPointsCoords);
+
+    pointsAmount = startPointsCoords.length;
+    pointsCoords = startPointsCoords;
+
+    if (time >= iterateNumber) {
+      clearInterval(timerId);
+      isDrawing = false;
+      pointsAmount = newPointsAmount;
+      pointsCoords = newPointsCoords;
+    }
+  }, iterateTime / iterateNumber);
+
+  function copyCoords(pointsCoords) {
+    return pointsCoords.map((coords) => ({ ...coords }));
+  }
 }
 
 function getChartData(pointsAmount) {
@@ -73,14 +108,43 @@ function getChartData(pointsAmount) {
   return pointsCoords;
 }
 
-function lineDrawing(x1, y1, x2, y2) {
+function getPointsAmount() {
+  return Math.floor(Math.random() * 9) + 2;
+}
+
+function drawintGraph(pointsCoords) {
+  ctx.fillStyle = "#FFFFFF";
+  pointsCoords.forEach(({ x, y }, index) => {
+    if (index) {
+      drawLine(pointsCoords[index - 1].x, pointsCoords[index - 1].y, x, y);
+    }
+  });
+  pointsCoords.forEach(({ x, y }) => {
+    drawPoint(x, y);
+  });
+}
+
+function drawPlane() {
   ctx.beginPath();
+  ctx.fillStyle = "rgba(158,167,184,0.3)";
+  ctx.clearRect(-canvasPadding, -canvasPadding, canW, canH);
+  ctx.fillStyle = "rgba(158,167,184,0.3)";
+  ctx.fillRect(-canvasPadding, -canvasPadding, canW, canH);
+  drawAxes();
+}
+
+function drawAxes() {
+  drawLine(0, 0, canW - 2 * canvasPadding, 0);
+  drawLine(0, 0, 0, canH - 2 * canvasPadding);
+}
+
+function drawLine(x1, y1, x2, y2) {
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
 }
 
-function pointDrawing(x, y) {
+function drawPoint(x, y) {
   ctx.beginPath();
   ctx.arc(x, y, 5, 0, Math.PI * 2, true);
   ctx.fill();

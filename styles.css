@@ -1,5 +1,8 @@
+body {
+  text-align: center;
+}
+
 #graphicsСanvas {
-  /* width: 600px;
-  height: 400px; */
+  padding-top: 50px;
   color: rgba(158, 167, 184, 0.5);
 }
